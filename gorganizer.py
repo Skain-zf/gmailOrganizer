@@ -8,8 +8,6 @@ import os
 import re
 
 pattern_uid = re.compile(r'\d+ \(UID (?P<uid>\d+)\)')
-EMAIL = "tcsimon58@gmail.com"
-PASSWORD = "kkiq ypxe ypwp ssbb"
 SPAM_KEYWORDS = ["delivered", "win big", "prize", "urgent action required"]
 
 class GmailOrganizer():
@@ -21,6 +19,25 @@ class GmailOrganizer():
                 config = json.load(f)
             config_str = json.dumps(config, indent=4)
             self.config_data = json.loads(config_str)
+        except JSONDecodeError:
+            print(f'The config file has malformed JSON data.')
+        return
+
+    def read_login_info(self):
+        '''
+        login_info.json has the format:
+        {
+          "email": "mygmail.com",
+          "passcode": "app password"
+        }
+        '''
+        try:
+            config = ''
+            config_path = os.path.join(os.path.dirname(__file__), 'conf', 'login_info.json')
+            with open(config_path, 'rt') as f:
+                config = json.load(f)
+            config_str = json.dumps(config, indent=4)
+            self.login_data = json.loads(config_str)
         except JSONDecodeError:
             print(f'The config file has malformed JSON data.')
         return
@@ -153,7 +170,8 @@ class GmailOrganizer():
 
     def __init__(self):
         self.mail = imaplib.IMAP4_SSL("imap.gmail.com")
-        self.mail.login(EMAIL, PASSWORD)
+        self.read_login_info()
+        self.mail.login(self.login_data["email"], self.login_data["passcode"])
 
         self.read_config()
         self.process_email()
