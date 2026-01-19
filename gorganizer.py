@@ -20,7 +20,7 @@ class GmailOrganizer():
             with open(config_path, 'rt') as f:
                 config = json.load(f)
             config_str = json.dumps(config, indent=4)
-            self. config_data = json.loads(config_str)
+            self.config_data = json.loads(config_str)
         except JSONDecodeError:
             print(f'The config file has malformed JSON data.')
         return
@@ -34,13 +34,43 @@ class GmailOrganizer():
         else:
             standard_date = email_date
         # from msg: Wed, 05 Nov 2025 09:54:36 +0000 (UTC)
-
         return standard_date
 
-    def parse_uid(self, data):
-        breakpoint()
-        match = pattern_uid.match(data)
-        return match.group('uid')
+    def check_email(self, criteria, keyword, days_to_wait):
+        now = datetime.now(timezone.utc)
+        print(f'Searching for {criteria} = {keyword}')
+        result, data = self.mail.search(None, criteria, keyword)
+        split_data = data[0].split()
+        print(f'Length of data: {len(split_data)}')
+        email_date = ''
+        loop_count = 0
+        valid_email_nums = []
+        for num in split_data:
+            loop_count += 1
+            try:
+                result, msg_data = self.mail.fetch(num, "(RFC822)")
+                # check for result == 'Ok'
+                if result != "OK":
+                    print(f'Result problem: {result}')
+                    continue
+                msg = email.message_from_bytes(msg_data[0][1])
+                # subject = msg["subject"]
+                # if any(keyword.lower() in subject.lower() for keyword in SPAM_KEYWORDS):
+                #     self.mail.store(num, "+FLAGS", "\\Deleted")
+
+                date_format = "%a, %d %b %Y %H:%M:%S %z"
+                # from msg: Wed, 05 Nov 2025 09:54:36 +0000 (UTC)
+                header_date = decode_header(msg["Date"])[0][0]
+                standard_date = self.standardize_date(header_date)
+                email_date = datetime.strptime(standard_date, date_format)
+                diff = str(now - email_date)
+                diff_days = int(diff[0:diff.find(' ')])
+                # print(f'diff_days: {diff_days}')
+                if diff_days > int(days_to_wait):
+                    valid_email_nums.append(num)
+            except ValueError as e:
+                print(f'ValueError on {criteria} = {keyword} email on {email_date}')
+        return valid_email_nums
 
     def remove_junk(self, remove_items):
         ret = self.mail.select(mailbox='inbox', readonly = False)
@@ -60,46 +90,64 @@ class GmailOrganizer():
             keyword = item["keyword"]
             days_to_wait = item["days"]
             print(f'{criteria} - {keyword} - {days_to_wait}')
-            result, data = self.mail.search(None, criteria, keyword)
-            split_data = data[0].split()
-            print(f'Length of data: {len(split_data)}')
-            email_date = ''
-            loop_count = 0
-            for num in split_data:
-                loop_count += 1
-                try:
-                    result, msg_data = self.mail.fetch(num, "(RFC822)")
-                    # check for result == 'Ok'
-                    msg = email.message_from_bytes(msg_data[0][1])
-                    # subject = msg["subject"]
-                    # if any(keyword.lower() in subject.lower() for keyword in SPAM_KEYWORDS):
-                    #     self.mail.store(num, "+FLAGS", "\\Deleted")
-
-                    date_format = "%a, %d %b %Y %H:%M:%S %z"
-                    # from msg: Wed, 05 Nov 2025 09:54:36 +0000 (UTC)
-                    header_date = decode_header(msg["Date"])[0][0]
-                    standard_date = self.standardize_date(header_date)
-                    email_date = datetime.strptime(standard_date, date_format)
-                    diff = str(now - email_date)
-                    diff_days = int(diff[0:diff.find(' ')])
-                    # print(f'diff_days: {diff_days}')
-                    if diff_days > int(days_to_wait):
-                        self.mail.store(num, '+X-GM-LABELS', '\Trash')
-                        self.mail.store(num, '-X-GM-LABELS', '\Inbox')
-
-                except ValueError as e:
-                    
-                    print(f'ValueError on {criteria} = {keyword} email on {email_date}')
-            print(f'Removed {loop_count} emails for {keyword}')
-            deleted_count = deleted_count + loop_count
+            num_list = self.check_email(criteria, keyword, days_to_wait)
+            for num in num_list:
+                self.mail.store(num, '+X-GM-LABELS', '\\Trash')
+                self.mail.store(num, '-X-GM-LABELS', '\\Inbox')
+            print(f'Removed {len(num_list)} emails for {keyword}')
+            deleted_count = deleted_count + len(num_list)
         self.mail.expunge()
         print(f"Spam emails deleted: {deleted_count}")
 
+    def folder_exists(self, folder_name):
+        # '""' means the reference is the top level, '*' means all mailboxes
+        result, data = self.mail.list(directory='""', pattern='*')
+        if result == 'OK':
+            for line in data:
+                # line is bytes, e.g., b'(\\HasNoChildren) "/" "INBOX"'
+                # We need to parse the folder name from the response
+                # A simpler way is to check the raw response for the name
+                if folder_name.encode() in line:
+                    return True
+        return False
+
+    def make_folder(self, folder_name):
+        result, message = self.mail.create(folder_name)
+        if result == 'OK':
+            print(f"Folder '{folder_name}' created successfully.")
+        else:
+            print(f"Failed to create folder '{folder_name}': {message[0].decode()}")
+
+    def move_to_archive(self, move_items):
+        moved_count = 0
+        # loop through move items
+        for item in move_items:
+            criteria = "FROM"
+            keyword = item['keyword']
+            folder_name = item['folder']
+            days_to_wait = item['days']
+
+            # check if folder_name exists
+            exists = self.folder_exists(folder_name)
+            # if not, create folder
+            if not exists:
+                self.make_folder(folder_name)
+            num_list = self.check_email(criteria, keyword, days_to_wait)
+            for num in num_list:
+                self.mail.store(num, '+X-GM-LABELS', f'{folder_name}')
+                # self.mail.store(num, '-X-GM-LABELS', '\\Inbox')
+                self.mail.store(num, '+FLAGS', '\\Deleted')
+            print(f'Moved {len(num_list)} emails for {keyword}')
+            moved_count = moved_count + len(num_list)
+        self.mail.expunge()
+        print(f"Emails moved to archive: {moved_count}")
 
     def process_email(self):
         remove_items = self.config_data["remove"]
         print('Checking inbox')
         self.remove_junk(remove_items)
+        move_items = self.config_data['move']
+        self.move_to_archive(move_items)
 
 
 
@@ -112,20 +160,6 @@ class GmailOrganizer():
         self.mail.logout()
 
 
-
-# breakpoint()
-
-# mail.select("inbox")
-# result, data = mail.search(None, 'FROM','Chewy.com')
-# for num in data[0].split():
-#     result, msg_data = mail.fetch(num, "(RFC822)")
-#     msg = email.message_from_bytes(msg_data[0][1])
-#     subject = msg["subject"]
-#     if any(keyword.lower() in subject.lower() for keyword in SPAM_KEYWORDS):
-#         mail.store(num, "+FLAGS", "\\Deleted")
-# mail.expunge()
-# mail.logout()
-# print("Spam emails deleted!")
 
 if __name__ == '__main__':
     go = GmailOrganizer()

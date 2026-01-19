@@ -34,7 +34,8 @@
     }
   ],
   "move": [
-    {"FROM":  "The Armory Life",
-    "folder": "Forums"}
+    {"keyword":  "edhrec.com",
+      "folder":  "Reference",
+      "days": "7"}
   ]
 }
