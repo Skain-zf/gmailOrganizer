@@ -1,0 +1,40 @@
+{
+  "remove": [
+    {"criteria": "FROM",
+      "keyword": "Chewy.com",
+      "days":  "30"
+    },
+    {"criteria": "FROM",
+      "keyword": "Michaels",
+      "days":  "30"
+    },
+    {"criteria":  "FROM",
+      "keyword":  "poem-a-day",
+      "days":  "30"
+    },
+    {"criteria":  "FROM",
+      "keyword": "duotrope.com",
+      "days": "60"
+    },
+    {"criteria":  "FROM",
+      "keyword":  "bookbub.com",
+      "days": "7"
+    },
+    {"criteria":  "FROM",
+      "keyword": "vaultrewards.com",
+      "days": "14"
+    },
+    {"criteria":  "FROM",
+      "keyword": "thegamer.com",
+      "days": "7"
+    },
+    {"criteria":  "FROM",
+      "keyword": "thriftbooks.com",
+      "days": "30"
+    }
+  ],
+  "move": [
+    {"FROM":  "The Armory Life",
+    "folder": "Forums"}
+  ]
+}
