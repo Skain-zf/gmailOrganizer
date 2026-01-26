@@ -25,17 +25,87 @@
       "days": "14"
     },
     {"criteria":  "FROM",
+      "keyword": "kay.com",
+      "days": "14"
+    },
+    {"criteria":  "FROM",
       "keyword": "thegamer.com",
       "days": "7"
     },
     {"criteria":  "FROM",
       "keyword": "thriftbooks.com",
       "days": "30"
+    },
+    {"criteria":  "FROM",
+      "keyword": "steampowered.com",
+      "days": "30"
+    },
+    {"criteria":  "FROM",
+      "keyword": "thesunmagazine.com",
+      "days": "15"
+    },
+    {"criteria":  "FROM",
+      "keyword": "therepublicoftea.com",
+      "days": "30"
+    },
+    {"criteria":  "FROM",
+      "keyword": "nextdoor.com",
+      "days": "7"
+    },
+    {"criteria":  "FROM",
+      "keyword": "unroll.me",
+      "days": "7"
+    },
+    {"criteria":  "FROM",
+      "keyword": "adagio.com",
+      "days": "7"
+    },
+    {"criteria":  "FROM",
+      "keyword": "linkedin.com",
+      "days": "7"
+    },
+    {"criteria":  "FROM",
+      "keyword": "bookriot.com",
+      "days": "7"
+    },
+    {"criteria":  "FROM",
+      "keyword": "intotheam.com",
+      "days": "7"
+    },
+    {"criteria":  "FROM",
+      "keyword": "zox.co",
+      "days": "7"
+    },
+    {"criteria":  "FROM",
+      "keyword": "lego.com",
+      "days": "30"
+    },
+    {"criteria":  "FROM",
+      "keyword": "steampunk-explorer.com",
+      "days": "30"
+    },
+    {"criteria":  "FROM",
+      "keyword": "tcgplayer.com",
+      "days": "30"
+    },
+    {"criteria":  "FROM",
+      "keyword": "cardkingdom.com",
+      "days": "30"
     }
   ],
   "move": [
     {"keyword":  "edhrec.com",
       "folder":  "Reference",
-      "days": "7"}
+      "days": "7"
+    },
+    {"keyword":  "agirlandagunclub.com",
+      "folder": "Reference",
+      "days": "14"
+    }
+  ],
+  "spamwords": [
+    "win big",
+    "prize",
+    "urgent action required"
   ]
 }

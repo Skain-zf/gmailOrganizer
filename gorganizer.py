@@ -7,8 +7,7 @@ from json import JSONDecodeError
 import os
 import re
 
-pattern_uid = re.compile(r'\d+ \(UID (?P<uid>\d+)\)')
-SPAM_KEYWORDS = ["delivered", "win big", "prize", "urgent action required"]
+# pattern_uid = re.compile(r'\d+ \(UID (?P<uid>\d+)\)')
 
 class GmailOrganizer():
     def read_config(self):
@@ -56,7 +55,10 @@ class GmailOrganizer():
     def check_email(self, criteria, keyword, days_to_wait):
         now = datetime.now(timezone.utc)
         print(f'Searching for {criteria} = {keyword}')
-        result, data = self.mail.search(None, criteria, keyword)
+        if criteria == 'FROM':
+            result, data = self.mail.search(None, criteria, keyword)
+        else:
+            result, data = self.mail.uid('search', None, r'(X-GM-RAW "{criteria}:\"{keyword}\"")')
         split_data = data[0].split()
         print(f'Length of data: {len(split_data)}')
         email_date = ''
@@ -70,7 +72,14 @@ class GmailOrganizer():
                 if result != "OK":
                     print(f'Result problem: {result}')
                     continue
-                msg = email.message_from_bytes(msg_data[0][1])
+                if len(msg_data) == 2:
+                    msg_body = msg_data[0]
+                elif len(msg_data) == 3:
+                    msg_body = msg_data[1]
+                else:
+                    print(f'Not sure where msg body is for num= {num}')
+                    continue
+                msg = email.message_from_bytes(msg_body[1])
                 # subject = msg["subject"]
                 # if any(keyword.lower() in subject.lower() for keyword in SPAM_KEYWORDS):
                 #     self.mail.store(num, "+FLAGS", "\\Deleted")
@@ -87,9 +96,11 @@ class GmailOrganizer():
                     valid_email_nums.append(num)
             except ValueError as e:
                 print(f'ValueError on {criteria} = {keyword} email on {email_date}')
+            except AttributeError as e2:
+                print(f'AttributeError on {criteria} = {keyword} email on {email_date}: {e2}')
         return valid_email_nums
 
-    def remove_junk(self, remove_items):
+    def remove_old(self, remove_items):
         ret = self.mail.select(mailbox='inbox', readonly = False)
         print(f'Select returned: {ret}')
         if ret[0] != 'OK':
@@ -114,7 +125,7 @@ class GmailOrganizer():
             print(f'Removed {len(num_list)} emails for {keyword}')
             deleted_count = deleted_count + len(num_list)
         self.mail.expunge()
-        print(f"Spam emails deleted: {deleted_count}")
+        print(f"Old emails deleted: {deleted_count}")
 
     def folder_exists(self, folder_name):
         # '""' means the reference is the top level, '*' means all mailboxes
@@ -159,12 +170,40 @@ class GmailOrganizer():
         self.mail.expunge()
         print(f"Emails moved to archive: {moved_count}")
 
+    def delete_spam(self, spam_items):
+        ret = self.mail.select(mailbox='inbox', readonly=False)
+        print(f'Select returned: {ret}')
+        if ret[0] != 'OK':
+            print(f'Selecting inbox failed, returning {ret}. Exiting.')
+            exit(-1)
+
+        now = datetime.now(timezone.utc)
+        print(now)
+        deleted_count = 0
+        criteria = "subject"
+        days_to_wait = "0"
+        for item in spam_items:
+            keyword = item
+            print(f'{criteria} - {keyword} - {days_to_wait}')
+            num_list = self.check_email(criteria, keyword, days_to_wait)
+            for num in num_list:
+                self.mail.store(num, '+X-GM-LABELS', '\\Trash')
+                self.mail.store(num, '-X-GM-LABELS', '\\Inbox')
+            print(f'Removed {len(num_list)} emails for {keyword}')
+            deleted_count = deleted_count + len(num_list)
+        self.mail.expunge()
+        print(f"Spam emails deleted: {deleted_count}")
+
+
+
     def process_email(self):
         remove_items = self.config_data["remove"]
         print('Checking inbox')
-        self.remove_junk(remove_items)
+        self.remove_old(remove_items)
         move_items = self.config_data['move']
         self.move_to_archive(move_items)
+        spam_items = self.config_data["spamwords"]
+        self.delete_spam(spam_items)
 
 
 
